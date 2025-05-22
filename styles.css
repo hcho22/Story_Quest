@@ -1,0 +1,271 @@
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: 'Arial', sans-serif;
+    background-color: #f0f2f5;
+}
+
+#game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.game-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
+
+.button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+}
+
+.button:hover {
+    background-color: #45a049;
+}
+
+.button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.input-area {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.9em;
+}
+
+.challenge-tracker {
+    flex: 1;
+    margin-left: 20px;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.challenge-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.current-challenge {
+    padding: 10px;
+    background-color: #e3f2fd;
+    border-radius: 6px;
+}
+
+.current-challenge h3 {
+    margin: 0 0 5px 0;
+    color: #1976d2;
+    font-size: 0.9em;
+}
+
+.current-challenge p {
+    margin: 0;
+    font-size: 1em;
+    color: #333;
+}
+
+.completed-challenges {
+    padding: 10px;
+    background-color: #f1f8e9;
+    border-radius: 6px;
+}
+
+.completed-challenges h3 {
+    margin: 0 0 5px 0;
+    color: #689f38;
+    font-size: 0.9em;
+}
+
+.completed-challenges ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: none;
+}
+
+.completed-challenges li {
+    font-size: 0.9em;
+    color: #558b2f;
+    margin-bottom: 5px;
+}
+
+.completed-challenges li:before {
+    content: "✓";
+    margin-right: 5px;
+    color: #689f38;
+}
+
+.challenge-completion {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #e8f5e9;
+    border-radius: 6px;
+    color: #2e7d32;
+    font-weight: bold;
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.timer {
+    font-size: 24px;
+    font-weight: bold;
+    color: #e74c3c;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.turn-indicator {
+    text-align: center;
+    font-size: 18px;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.ai-turn {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.user-turn {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.input-container {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.voice-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #2196F3;
+    min-width: 120px;
+}
+
+.voice-button:hover {
+    background-color: #1976D2;
+}
+
+.voice-button.listening {
+    background-color: #f44336;
+    animation: pulse 1.5s infinite;
+}
+
+.voice-button.listening:hover {
+    background-color: #d32f2f;
+}
+
+.voice-status {
+    margin-top: 5px;
+    font-size: 14px;
+    color: #666;
+    min-height: 20px;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.mic-icon {
+    font-size: 18px;
+}
+
+#voice-input {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+#voice-input:hover {
+    background-color: #45a049;
+}
+
+#voice-input.listening {
+    background-color: #f44336;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+#voice-input:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    animation: none;
+} 

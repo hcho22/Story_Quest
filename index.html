@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StoryQuest: Turn-Based Story Adventure</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Add Supabase client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Add configuration file -->
+    <script src="config.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+        }
+        #game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .game-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .input-area {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .challenge-box {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .story-display {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            min-height: 200px;
+            border: 1px solid #ddd;
+        }
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e74c3c;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .turn-indicator {
+            text-align: center;
+            font-size: 18px;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .ai-turn {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        .user-turn {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .input-container {
+            position: relative;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        
+        .voice-button {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background-color: #2196F3;
+            min-width: 120px;
+        }
+        
+        .voice-button:hover {
+            background-color: #1976D2;
+        }
+        
+        .voice-button.listening {
+            background-color: #f44336;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .voice-button.listening:hover {
+            background-color: #d32f2f;
+        }
+        
+        .voice-status {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+            min-height: 20px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .mic-icon {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="header">
+            <h1>🎮 StoryQuest: Turn-Based Story Adventure</h1>
+        </div>
+
+        <div class="game-section">
+            <div class="stats">
+                <div class="stat-box">
+                    <h3>🌟 Points</h3>
+                    <p id="points">0</p>
+                </div>
+                <div class="stat-box">
+                    <h3>⏱️ Time Left</h3>
+                    <p id="timer" class="timer">2:00</p>
+                </div>
+                <div class="stat-box">
+                    <h3>📝 Sentences</h3>
+                    <p id="sentences">0/5</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-section">
+            <h2>📚 Game Settings</h2>
+            <select id="grade-level" class="input-area">
+                <option value="K-2">K-2</option>
+                <option value="3-5">3-5</option>
+                <option value="6-8">6-8</option>
+                <option value="9-12">9-12</option>
+            </select>
+            <button class="button" id="start-game">🎮 Start New Game</button>
+        </div>
+
+        <div class="game-section">
+            <h2>🎯 Current Challenge</h2>
+            <div id="challenge-display" class="challenge-box">
+                Click "Start New Game" to begin!
+            </div>
+            <div id="turn-indicator" class="turn-indicator">
+                Waiting to start...
+            </div>
+        </div>
+
+        <div class="game-section">
+            <h2>📖 Your Story</h2>
+            <div id="story-display" class="story-display"></div>
+        </div>
+
+        <div class="game-section">
+            <h2>✍️ Your Turn</h2>
+            <div class="input-container">
+                <textarea id="story-input" class="input-area" rows="3" placeholder="Type your sentence here..." disabled></textarea>
+                <button id="voice-input" class="button voice-button" disabled>
+                    <span class="mic-icon">🎤</span>
+                    <span class="mic-text">Voice Input</span>
+                </button>
+            </div>
+            <div class="voice-status" id="voice-status"></div>
+            <div>
+                <button class="button" id="submit-story" disabled>📤 Submit Sentence</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html> 

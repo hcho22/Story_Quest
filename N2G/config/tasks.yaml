@@ -1,0 +1,74 @@
+generate_prompt:
+  description: >
+    Start a story with a short, imaginative opening (2–3 sentences) tailored to the selected genre ({genre}) 
+    and grade level ({grade_level}). This starter should be something the student can directly continue.
+    It should:
+    - Introduce a character or situation
+    - Match the tone, style, and vocabulary suitable for {grade_level}
+    - Clearly reflect the selected genre ({genre})
+  expected_output: >
+    A 2–3 sentence story starter that the student can immediately continue, reflecting the chosen genre and grade level.
+  agent: creative_writer
+
+continue_story:
+  description: >
+    Continue the following story using the same characters, setting, and tone.
+    
+    --- STORY SO FAR ---
+    {story_so_far}
+    --------------------
+    
+    You must:
+    - Match the style and voice of the student's writing.
+    - Continue from where the student left off.
+    - Use the same characters (do NOT introduce new characters or scenes).
+    - Keep the tone and genre consistent with what the student wrote.
+    - Write only 2–3 new sentences that move the story forward.
+
+    Do not restart, summarize, analyze, or change the story setting.
+  expected_output: >
+    2–3 sentences that seamlessly continue the student's latest paragraph using the same characters and style.
+  agent: story_partner
+
+
+
+provide_feedback:
+  description: >
+    Offer creative feedback on the student's writing based on {grade_level}. Highlight what they did well 
+    (creativity, detail, structure), and provide one suggestion for deepening their story.
+  expected_output: >
+    A short paragraph (2–4 sentences) of feedback that is age-appropriate and encouraging, ending with one actionable tip.
+  agent: creativity_evaluator
+
+give_scaffolding:
+  description: >
+    The student might be unsure how to continue. Provide a hint, question, or sentence starter that relates 
+    to their current story. This should align with their selected genre ({genre}) and be grade-appropriate.
+  expected_output: >
+    One creative suggestion or sentence starter to help the student move their story forward.
+  agent: scaffolding_agent
+
+moderate_content:
+  description: >
+    Review the content for inappropriate words, themes, or age-inappropriate elements. 
+    Flag anything questionable and rewrite if needed.
+  expected_output: >
+    A status report ("Safe" or "Flagged") and a cleaned-up version if required.
+  agent: content_moderator
+
+track_progress:
+  description: >
+    Review the student's story so far. If the student has only used the story starter and hasn't added their own ideas yet,
+    do not offer any feedback or suggestions — simply state that there is not enough student content to evaluate.
+
+    If the student has written beyond the starter, analyze their writing and suggest one next-step story skill they can work on
+    (e.g., adding emotion, improving transitions, or expanding dialogue). Be concise and supportive.
+
+  expected_output: >
+    - If the student has not added any content beyond the AI-generated story starter: 
+      "There is not enough student content yet to evaluate progress."
+    - If the student has contributed to the story: 
+      A single, supportive suggestion for a story skill they can improve on, based on their writing.
+  agent: progress_tracker
+
+
