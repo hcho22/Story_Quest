@@ -192,7 +192,7 @@
         <div class="game-section">
             <h2>🎯 Current Challenge</h2>
             <div id="challenge-display" class="challenge-box">
-                Click "Start New Game" to begin!
+                <div id="currentChallenge" class="challenge-display">Click "Start New Game" to begin!</div>
             </div>
             <div id="turn-indicator" class="turn-indicator">
                 Waiting to start...
@@ -217,6 +217,22 @@
             <div>
                 <button class="button" id="submit-story" disabled>📤 Submit Sentence</button>
             </div>
+        </div>
+    </div>
+
+    <div id="gameInterface" style="display: none;">
+        <div class="game-header">
+            <div id="timer">Time: 60s</div>
+            <div id="currentChallenge" class="challenge-display">Current Challenge: None</div>
+            <div id="score">Score: 0</div>
+        </div>
+        <div id="story-display" class="story-display"></div>
+        <div class="input-area">
+            <textarea id="storyInput" placeholder="Write your part of the story here..."></textarea>
+            <button id="voiceInputBtn" class="voice-input-btn">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button id="submitBtn">Submit</button>
         </div>
     </div>
 
