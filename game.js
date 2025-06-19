@@ -12,7 +12,8 @@ let gameState = {
     maxSentences: 5,
     timer: null,
     timeLeft: 120, // 2 minutes in seconds for user turn
-    gameStarted: false
+    gameStarted: false,
+    userWords: 0
 };
 
 // Story challenges by grade level
@@ -279,7 +280,8 @@ async function endGame() {
     // Calculate final stats
     const finalScore = gameState.points;
     const completedChallenges = gameState.completedChallenges.length;
-    const totalWords = gameState.words;
+    const totalWords = gameState.userWords; // Only user words
+    console.log('Words Written at endGame:', totalWords); // Debug log
     
     console.log('Game ended with stats:', {
         finalScore,
@@ -324,6 +326,7 @@ async function endGame() {
                 ${supabase ? '<button id="save-score">Save Score</button>' : ''}
                 <button id="new-game">New Game</button>
                 <button id="view-scores">View High Scores</button>
+                <button id="close-score-modal">Close</button>
             </div>
         </div>
     `;
@@ -432,11 +435,18 @@ async function endGame() {
         await showHighScores();
     });
 
+    document.getElementById('close-score-modal').addEventListener('click', () => {
+        scoreModal.remove();
+    });
+
     // Disable input
     document.getElementById('story-input').disabled = true;
     document.getElementById('submit-story').disabled = true;
     document.getElementById('voice-input').disabled = true;
     updateTurnIndicator();
+
+    // Update main screen stats to reflect final values
+    updateStats();
 }
 
 // Game functions
@@ -620,11 +630,11 @@ function updateChallengeDisplay() {
 function updateStats() {
     const pointsElement = document.getElementById('points');
     const challengesElement = document.getElementById('challenges');
-    const wordsElement = document.getElementById('words');
+    const wordsElement = document.getElementById('words-written');
     
     if (pointsElement) pointsElement.textContent = gameState.points;
     if (challengesElement) challengesElement.textContent = `${gameState.completedChallenges.length}/3`;
-    if (wordsElement) wordsElement.textContent = gameState.words;
+    if (wordsElement) wordsElement.textContent = gameState.userWords;
 }
 
 function addToStory(text, isAI = false) {
@@ -638,7 +648,13 @@ function addToStory(text, isAI = false) {
     newParagraph.textContent = prefix + text;
     storyDisplay.appendChild(newParagraph);
     gameState.story += text + '\n';
-    gameState.words = gameState.story.split(/\s+/).length;
+
+    // Only count user words
+    if (!isAI) {
+        const userWordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+        gameState.userWords += userWordCount;
+    }
+
     updateStats();
 }
 
@@ -886,6 +902,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Add user's story and award points
             addToStory(text);
+            updateStats();
             awardPoints(text);
             input.value = '';
             
@@ -921,6 +938,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function startNewGame() {
+    // Clear the story display box
+    const storyDisplay = document.getElementById('story-display');
+    if (storyDisplay) {
+        storyDisplay.innerHTML = '';
+    }
     // Reset game state
     gameState.sentenceCount = 0;
     gameState.story = '';
