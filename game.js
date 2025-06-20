@@ -367,24 +367,6 @@ async function endGame() {
             saveButton.textContent = 'Saving...';
             
             try {
-                // Check if player ID is already taken
-                const { data: existingPlayer, error: checkError } = await supabase
-                    .from('scores')
-                    .select('player_id')
-                    .eq('player_id', playerId)
-                    .single();
-
-                if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-                    throw checkError;
-                }
-
-                if (existingPlayer) {
-                    alert('This player ID is already taken. Please choose a different one.');
-                    saveButton.disabled = false;
-                    saveButton.textContent = 'Save Score';
-                    return;
-                }
-
                 const { data, error } = await supabase
                     .from('scores')
                     .insert([
