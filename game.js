@@ -723,29 +723,47 @@ function getMinWordCount(gradeLevel) {
 // Voice recognition setup
 function setupVoiceRecognition() {
     if ('webkitSpeechRecognition' in window) {
-        recognition = new webkitSpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
+        if (!recognition) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
 
-        recognition.onresult = (event) => {
-            const text = event.results[0][0].transcript;
-            document.getElementById('story-input').value = text;
-        };
+            recognition.onstart = () => {
+                console.log('Voice recognition started');
+            };
 
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            isListening = false;
-            updateVoiceButton();
-        };
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                const inputBox = document.getElementById('story-input');
+                // Append transcript if box already has text
+                if (inputBox.value.trim().length > 0) {
+                    inputBox.value += ' ' + text;
+                } else {
+                    inputBox.value = text;
+                }
+                inputBox.focus();
+            };
 
-        recognition.onend = () => {
-            isListening = false;
-            updateVoiceButton();
-        };
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                isListening = false;
+                updateVoiceButton();
+                alert('Speech recognition error: ' + event.error);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                updateVoiceButton();
+                console.log('Voice recognition ended');
+            };
+        }
+        // Enable the button if supported
+        document.getElementById('voice-input').disabled = false;
     } else {
         console.warn('Speech recognition not supported in this browser');
         document.getElementById('voice-input').style.display = 'none';
+        alert('Voice input is not supported in this browser. Please use Google Chrome.');
     }
 }
 
