@@ -683,14 +683,18 @@ function validateChallenge(text) {
 }
 
 function awardPoints(text) {
-    // Award points for completing the current challenge
+    const wordCount = text.trim().split(/\s+/).length;
+    
+    // Award 1 point for every 5 words
+    gameState.points += Math.floor(wordCount / 5);
+
+    // Award bonus points for completing the current challenge
     if (validateChallenge(text)) {
         gameState.points += 10;
         if (!gameState.completedChallenges.includes(gameState.currentChallenge)) {
             gameState.completedChallenges.push(gameState.currentChallenge);
         }
         updateChallengeDisplay();
-        updateStats();
         
         // Show challenge completion message
         const storyDisplay = document.getElementById('story-display');
@@ -700,15 +704,9 @@ function awardPoints(text) {
             completionMessage.textContent = `🎉 Challenge Completed: ${gameState.currentChallenge}`;
             storyDisplay.appendChild(completionMessage);
         }
-        
-        // Award bonus points for word count
-        const wordCount = text.trim().split(/\s+/).length;
-        if (wordCount >= getMinWordCount(gameState.gradeLevel)) {
-            gameState.points += 5;
-            gameState.words += wordCount;
-            updateStats();
-        }
     }
+
+    updateStats();
 }
 
 // Helper function to get minimum word count based on grade level
