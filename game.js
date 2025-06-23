@@ -13,7 +13,8 @@ let gameState = {
     timer: null,
     timeLeft: 120, // 2 minutes in seconds for user turn
     gameStarted: false,
-    userWords: 0
+    userWords: 0,
+    userProfile: null
 };
 
 // Story challenges by grade level
@@ -28,7 +29,17 @@ const STORY_CHALLENGES = {
         "Add a funny moment 😄",
         "Include a family member 👨‍👩‍👧‍👦",
         "Describe what someone is wearing 👕",
-        "Add a favorite food 🍕"
+        "Add a favorite food 🍕",
+        "Include a talking tree 🌳",
+        "Describe a sound you hear in the story 👂",
+        "Make a character go on a treasure hunt 🗺️",
+        "Add a helpful insect 🐞",
+        "Describe a place using three colors 🎨",
+        "Make a character find a secret door 🚪",
+        "Include a lost toy 🧸",
+        "Describe a character's dream 💭",
+        "Add a silly dance move 💃",
+        "Make a character help a friend 🤝"
     ],
     "3-5": [
         "Create a unexpected plot twist 🔄",
@@ -40,7 +51,17 @@ const STORY_CHALLENGES = {
         "Include a flashback memory 🕰️",
         "Add a surprising discovery 💡",
         "Describe a character's feelings 💕",
-        "Include a lesson learned 📚"
+        "Include a lesson learned 📚",
+        "Make a character invent something new 🛠️",
+        "Describe a festival or celebration 🎉",
+        "Include a riddle or puzzle 🧩",
+        "Make a character overcome a fear 😱",
+        "Describe a journey through a forest 🌲",
+        "Add a magical animal 🦄",
+        "Include a secret message 📝",
+        "Describe a character's favorite place 🏞️",
+        "Make a character meet someone new 👋",
+        "Include a time when someone gets lost 🧭"
     ],
     "6-8": [
         "Develop a character's inner thoughts 🤔",
@@ -52,7 +73,17 @@ const STORY_CHALLENGES = {
         "Include symbolic meaning 🎭",
         "Create suspense 😰",
         "Show don't tell a feeling 💫",
-        "Add a surprising revelation 💥"
+        "Add a surprising revelation 💥",
+        "Describe a character's secret ambition 🎯",
+        "Include a scene at night 🌙",
+        "Make a character face a tough decision ⚖️",
+        "Describe a festival or public event 🎪",
+        "Add a mysterious stranger 🕵️",
+        "Include a letter or diary entry 📖",
+        "Describe a place using all five senses 👀👂👃👅🤚",
+        "Make a character break a rule 🚫",
+        "Include a moment of teamwork 🤝",
+        "Describe a character's biggest mistake ❌"
     ],
     "9-12": [
         "Develop complex character motivations 🎭",
@@ -64,7 +95,17 @@ const STORY_CHALLENGES = {
         "Add moral ambiguity 🤔",
         "Include dramatic irony 🎭",
         "Create a unique narrative voice 🗣️",
-        "Add philosophical elements 💭"
+        "Add philosophical elements 💭",
+        "Describe a character's internal conflict 🧠",
+        "Include a flashback that changes the story 🕰️",
+        "Make a character question their beliefs ❓",
+        "Describe a setting in vivid detail 🌆",
+        "Add a betrayal between characters 🗡️",
+        "Include a symbol that recurs throughout the story 🔁",
+        "Make a character face a moral dilemma ⚖️",
+        "Describe a moment of epiphany 💡",
+        "Include a scene with unreliable narration 🤥",
+        "Make a character confront their past 👤"
     ]
 };
 
@@ -277,6 +318,9 @@ async function endGame() {
     clearInterval(gameState.timer);
     gameState.gameStarted = false;
     
+    // --- Streak Logic ---
+    await updateUserStreak();
+
     // Calculate final stats
     const finalScore = gameState.points;
     const completedChallenges = gameState.completedChallenges.length;
@@ -804,10 +848,125 @@ function updateVoiceButton() {
     }
 }
 
+// --- Authentication Functions ---
+async function handleLogin() {
+    const email = document.getElementById('email-input').value;
+    const password = document.getElementById('password-input').value;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+        alert('Error logging in: ' + error.message);
+    }
+}
+
+async function handleSignup() {
+    const email = document.getElementById('email-input').value;
+    const password = document.getElementById('password-input').value;
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+        alert('Error signing up: ' + error.message);
+    } else {
+        alert('Signup successful! Please check your email for a confirmation link.');
+    }
+}
+
+async function handleLogout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        alert('Error logging out: ' + error.message);
+    }
+}
+
+async function fetchUserProfile() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('streak, last_played_date')
+            .eq('id', user.id)
+            .single();
+
+        if (error) {
+            console.error('Error fetching profile:', error);
+        } else {
+            gameState.userProfile = data;
+            updateStreakDisplay();
+        }
+    }
+}
+
+function updateStreakDisplay() {
+    const streakElement = document.getElementById('streak-display');
+    if (gameState.userProfile && gameState.userProfile.streak > 0) {
+        streakElement.textContent = `🔥 ${gameState.userProfile.streak} day streak`;
+    } else {
+        streakElement.textContent = '';
+    }
+}
+
+async function updateUserStreak() {
+    const today = new Date().toISOString().split('T')[0];
+    const user = supabase.auth.getUser();
+
+    if (!gameState.userProfile || !user) return;
+
+    const lastPlayed = gameState.userProfile.last_played_date;
+    let newStreak = gameState.userProfile.streak || 0;
+
+    if (lastPlayed !== today) {
+        const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
+        if (lastPlayed === yesterday) {
+            newStreak++; // Continue streak
+        } else {
+            newStreak = 1; // Reset streak
+        }
+
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const { error } = await supabase
+            .from('profiles')
+            .update({ streak: newStreak, last_played_date: today })
+            .eq('id', currentUser.id);
+
+        if (error) {
+            console.error('Error updating streak:', error);
+        } else {
+            gameState.userProfile.streak = newStreak;
+            gameState.userProfile.last_played_date = today;
+            updateStreakDisplay();
+        }
+    }
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize Supabase client
     supabase = await initializeSupabase();
+
+    // --- Auth UI Listeners ---
+    document.getElementById('login-button').addEventListener('click', handleLogin);
+    document.getElementById('signup-button').addEventListener('click', handleSignup);
+    document.getElementById('logout-button').addEventListener('click', handleLogout);
+
+    // Listen for auth state changes
+    supabase.auth.onAuthStateChange((event, session) => {
+        const loginContainer = document.getElementById('login-container');
+        const gameContainer = document.getElementById('game-container');
+        const userEmailElement = document.getElementById('user-email');
+
+        if (session && session.user) {
+            // User is logged in
+            loginContainer.style.display = 'none';
+            gameContainer.style.display = 'block';
+            userEmailElement.textContent = `Welcome, ${session.user.email}`;
+            fetchUserProfile(); // Fetch profile on login
+        } else {
+            // User is logged out
+            loginContainer.style.display = 'block';
+            gameContainer.style.display = 'none';
+            userEmailElement.textContent = '';
+            gameState.userProfile = null;
+            updateStreakDisplay();
+        }
+    });
     
     // Set initial timer display
     gameState.timeLeft = 120; // 2 minutes in seconds
@@ -839,6 +998,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!gameState.gameStarted) {
                 startNewGame();
             }
+        });
+    }
+    
+    // Add restart game button event listener (always allow restart)
+    const restartGameButton = document.getElementById('restart-game');
+    if (restartGameButton) {
+        restartGameButton.addEventListener('click', () => {
+            startNewGame();
         });
     }
     
