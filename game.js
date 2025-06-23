@@ -120,6 +120,26 @@ let supabase = null;
 let recognition = null;
 let isListening = false;
 
+// Grade-level vocabulary words for scoring
+const GRADE_VOCABULARY = {
+    "K-2": {
+        basic: ["the", "and", "a", "to", "in", "is", "you", "that", "it", "he", "was", "for", "on", "are", "as", "with", "his", "they", "at", "be", "this", "have", "from", "or", "one", "had", "by", "word", "but", "not", "what", "all", "were", "we", "when", "your", "can", "said", "there", "use", "an", "each", "which", "she", "do", "how", "their", "if", "will", "up", "other", "about", "out", "many", "then", "them", "these", "so", "some", "her", "would", "make", "like", "into", "him", "time", "two", "more", "go", "no", "way", "could", "my", "than", "first", "been", "call", "who", "its", "now", "find", "long", "down", "day", "did", "get", "come", "made", "may", "part"],
+        advanced: ["beautiful", "wonderful", "amazing", "exciting", "friendly", "happy", "sad", "big", "small", "fast", "slow", "loud", "quiet", "bright", "dark", "warm", "cold", "soft", "hard", "sweet", "funny", "scary", "magical", "special", "colorful", "shiny", "sparkly", "bouncy", "fuzzy", "smooth"]
+    },
+    "3-5": {
+        basic: ["because", "through", "before", "after", "during", "while", "until", "since", "although", "however", "therefore", "meanwhile", "finally", "suddenly", "quickly", "slowly", "carefully", "easily", "happily", "sadly", "angrily", "quietly", "loudly", "brightly", "darkly", "warmly", "coldly", "softly", "hardly", "sweetly", "funnily"],
+        advanced: ["adventure", "journey", "discovery", "mystery", "treasure", "castle", "dragon", "wizard", "princess", "knight", "forest", "mountain", "ocean", "river", "island", "cave", "bridge", "tower", "garden", "palace", "kingdom", "magic", "spell", "enchantment", "curiosity", "bravery", "wisdom", "kindness", "courage", "strength"]
+    },
+    "6-8": {
+        basic: ["consequently", "furthermore", "moreover", "nevertheless", "nonetheless", "otherwise", "similarly", "likewise", "conversely", "additionally", "specifically", "particularly", "especially", "generally", "usually", "frequently", "occasionally", "rarely", "seldom", "never", "always", "sometimes", "often", "constantly", "continuously", "gradually", "rapidly", "immediately", "instantly", "eventually", "ultimately"],
+        advanced: ["enigmatic", "mysterious", "puzzling", "perplexing", "bewildering", "confusing", "complicated", "complex", "sophisticated", "elaborate", "detailed", "thorough", "comprehensive", "extensive", "vast", "immense", "enormous", "gigantic", "colossal", "tremendous", "magnificent", "spectacular", "extraordinary", "remarkable", "exceptional", "outstanding", "brilliant", "genius", "masterful", "skilled", "talented"]
+    },
+    "9-12": {
+        basic: ["notwithstanding", "consequently", "furthermore", "moreover", "nevertheless", "nonetheless", "otherwise", "similarly", "likewise", "conversely", "additionally", "specifically", "particularly", "especially", "generally", "usually", "frequently", "occasionally", "rarely", "seldom", "never", "always", "sometimes", "often", "constantly", "continuously", "gradually", "rapidly", "immediately", "instantly", "eventually"],
+        advanced: ["philosophical", "metaphysical", "theoretical", "hypothetical", "analytical", "logical", "rational", "systematic", "methodical", "strategic", "tactical", "diplomatic", "political", "economic", "social", "cultural", "historical", "scientific", "technological", "environmental", "psychological", "sociological", "anthropological", "archaeological", "geological", "astronomical", "biological", "chemical", "physical", "mathematical"]
+    }
+};
+
 function initCanvas() {
     canvas = document.createElement('canvas');
     canvas.width = window.innerWidth;
@@ -724,33 +744,6 @@ function validateChallenge(text) {
     }
     
     return false;
-}
-
-function awardPoints(text) {
-    const wordCount = text.trim().split(/\s+/).length;
-    
-    // Award 1 point for every 5 words
-    gameState.points += Math.floor(wordCount / 5);
-
-    // Award bonus points for completing the current challenge
-    if (validateChallenge(text)) {
-        gameState.points += 10;
-        if (!gameState.completedChallenges.includes(gameState.currentChallenge)) {
-            gameState.completedChallenges.push(gameState.currentChallenge);
-        }
-        updateChallengeDisplay();
-        
-        // Show challenge completion message
-        const storyDisplay = document.getElementById('story-display');
-        if (storyDisplay) {
-            const completionMessage = document.createElement('div');
-            completionMessage.className = 'challenge-completion';
-            completionMessage.textContent = `🎉 Challenge Completed: ${gameState.currentChallenge}`;
-            storyDisplay.appendChild(completionMessage);
-        }
-    }
-
-    updateStats();
 }
 
 // Helper function to get minimum word count based on grade level
@@ -1395,6 +1388,16 @@ style.textContent = `
         font-weight: bold;
     }
 
+    .vocabulary-bonus {
+        background-color: #fff3e0;
+        color: #e65100;
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+        border-radius: 4px;
+        font-weight: bold;
+        border-left: 4px solid #ff9800;
+    }
+
     .high-scores-button {
         position: absolute;
         top: 1rem;
@@ -1498,4 +1501,83 @@ style.textContent = `
         color: #2196F3;
     }
 `;
-document.head.appendChild(style); 
+document.head.appendChild(style);
+
+// Helper function to check for grade-appropriate vocabulary
+function checkGradeLevelVocabulary(text, gradeLevel) {
+    const textLower = text.toLowerCase();
+    const words = textLower.split(/\s+/);
+    const vocabulary = GRADE_VOCABULARY[gradeLevel];
+    
+    if (!vocabulary) return { basicCount: 0, advancedCount: 0, totalPoints: 0 };
+    
+    let basicCount = 0;
+    let advancedCount = 0;
+    
+    // Check each word against the grade-level vocabulary
+    words.forEach(word => {
+        // Clean the word (remove punctuation)
+        const cleanWord = word.replace(/[^\w]/g, '');
+        if (cleanWord.length < 3) return; // Skip very short words
+        
+        if (vocabulary.basic.includes(cleanWord)) {
+            basicCount++;
+        } else if (vocabulary.advanced.includes(cleanWord)) {
+            advancedCount++;
+        }
+    });
+    
+    // Calculate points: 1 point for basic words, 3 points for advanced words
+    const totalPoints = basicCount + (advancedCount * 3);
+    
+    return { basicCount, advancedCount, totalPoints };
+}
+
+function awardPoints(text) {
+    const wordCount = text.trim().split(/\s+/).length;
+    
+    // Award 1 point for every 5 words
+    gameState.points += Math.floor(wordCount / 5);
+
+    // Award bonus points for completing the current challenge
+    if (validateChallenge(text)) {
+        gameState.points += 20;
+        if (!gameState.completedChallenges.includes(gameState.currentChallenge)) {
+            gameState.completedChallenges.push(gameState.currentChallenge);
+        }
+        updateChallengeDisplay();
+        
+        // Show challenge completion message
+        const storyDisplay = document.getElementById('story-display');
+        if (storyDisplay) {
+            const completionMessage = document.createElement('div');
+            completionMessage.className = 'challenge-completion';
+            completionMessage.textContent = `🎉 Challenge Completed: ${gameState.currentChallenge}`;
+            storyDisplay.appendChild(completionMessage);
+        }
+    }
+
+    // Award points for grade-appropriate vocabulary
+    const vocabScore = checkGradeLevelVocabulary(text, gameState.gradeLevel);
+    if (vocabScore.totalPoints > 0) {
+        gameState.points += vocabScore.totalPoints;
+        
+        // Show vocabulary bonus message
+        const storyDisplay = document.getElementById('story-display');
+        if (storyDisplay) {
+            const vocabMessage = document.createElement('div');
+            vocabMessage.className = 'vocabulary-bonus';
+            let message = `📚 Vocabulary Bonus: +${vocabScore.totalPoints} points`;
+            if (vocabScore.basicCount > 0) {
+                message += ` (${vocabScore.basicCount} basic words)`;
+            }
+            if (vocabScore.advancedCount > 0) {
+                message += ` (${vocabScore.advancedCount} advanced words)`;
+            }
+            vocabMessage.textContent = message;
+            storyDisplay.appendChild(vocabMessage);
+        }
+    }
+
+    updateStats();
+} 
