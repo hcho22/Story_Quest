@@ -1100,6 +1100,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             startTimer();
         }
     });
+
+    // Add stop game button event listener (always allow stop)
+    const stopGameButton = document.getElementById('stop-game');
+    if (stopGameButton) {
+        stopGameButton.addEventListener('click', () => {
+            endGame();
+        });
+    }
 });
 
 function startNewGame() {

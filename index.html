@@ -156,9 +156,28 @@
     </style>
 </head>
 <body>
-    <div id="game-container">
+    <div id="login-container">
+        <div class="header">
+            <h1>🎮 StoryQuest</h1>
+            <p>Please log in or sign up to play</p>
+        </div>
+        <div class="game-section">
+            <h2>Login / Sign Up</h2>
+            <input type="email" id="email-input" class="input-area" placeholder="Enter your email" required>
+            <input type="password" id="password-input" class="input-area" placeholder="Enter your password" required>
+            <button id="login-button" class="button">Login</button>
+            <button id="signup-button" class="button">Sign Up</button>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
         <div class="header">
             <h1>🎮 StoryQuest: Turn-Based Story Adventure</h1>
+            <div id="user-info" style="text-align: right; margin-bottom: 10px;">
+                <span id="user-email"></span>
+                <span id="streak-display" style="margin-left: 10px;"></span>
+                <button id="logout-button" class="button">Logout</button>
+            </div>
         </div>
 
         <div class="game-section">
@@ -191,6 +210,8 @@
                 <option value="9-12">9-12</option>
             </select>
             <button class="button" id="start-game">🎮 Start New Game</button>
+            <button class="button" id="restart-game">🔄 Restart Game</button>
+            <button class="button" id="stop-game">🛑 Stop Game</button>
         </div>
 
         <div class="game-section">
