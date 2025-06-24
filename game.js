@@ -4,6 +4,7 @@ let gameState = {
     challenges: 0,
     words: 0,
     story: '',
+    storyLines: [],
     currentChallenge: null,
     completedChallenges: [],
     gradeLevel: 'K-2',
@@ -14,7 +15,8 @@ let gameState = {
     timeLeft: 120, // 2 minutes in seconds for user turn
     gameStarted: false,
     userWords: 0,
-    userProfile: null
+    userProfile: null,
+    xp: 0
 };
 
 // Story challenges by grade level
@@ -388,6 +390,7 @@ async function endGame() {
             </div>
             <div class="score-actions">
                 ${supabase ? '<button id="save-score">Save Score</button>' : ''}
+                <button id="download-story">Download Story</button>
                 <button id="new-game">New Game</button>
                 <button id="view-scores">View High Scores</button>
                 <button id="close-score-modal">Close</button>
@@ -395,6 +398,22 @@ async function endGame() {
         </div>
     `;
     document.body.appendChild(scoreModal);
+
+    // Download story button logic
+    document.getElementById('download-story').addEventListener('click', () => {
+        // Format story with author labels
+        const lines = gameState.storyLines.map(line => `${line.author}: ${line.text}`);
+        const storyText = lines.join('\n');
+        const blob = new Blob([storyText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'my_story.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
 
     // Add event listeners for the score modal buttons
     if (supabase) {
@@ -442,7 +461,8 @@ async function endGame() {
                             story: gameState.story,
                             completed_challenges: gameState.completedChallenges,
                             player_email: email,
-                            player_id: playerId
+                            player_id: playerId,
+                            xp: finalScore
                         }
                     ])
                     .select();
@@ -502,6 +522,7 @@ async function startGame() {
     gameState.gameStarted = true;
     gameState.sentenceCount = 0;
     gameState.story = '';
+    gameState.storyLines = [];
     gameState.completedChallenges = [];
     gameState.points = 0;
     gameState.words = 0;
@@ -694,6 +715,8 @@ function addToStory(text, isAI = false) {
     newParagraph.textContent = prefix + text;
     storyDisplay.appendChild(newParagraph);
     gameState.story += text + '\n';
+    // Track story lines with author
+    gameState.storyLines.push({ text, author: isAI ? 'AI' : 'User' });
 
     // Only count user words
     if (!isAI) {
@@ -874,7 +897,7 @@ async function fetchUserProfile() {
     if (user) {
         const { data, error } = await supabase
             .from('profiles')
-            .select('streak, last_played_date')
+            .select('streak, last_played_date, xp')
             .eq('id', user.id)
             .single();
 
@@ -882,7 +905,9 @@ async function fetchUserProfile() {
             console.error('Error fetching profile:', error);
         } else {
             gameState.userProfile = data;
+            gameState.xp = data.xp || 0;
             updateStreakDisplay();
+            updateXpDisplay();
         }
     }
 }
@@ -893,6 +918,13 @@ function updateStreakDisplay() {
         streakElement.textContent = `🔥 ${gameState.userProfile.streak} day streak`;
     } else {
         streakElement.textContent = '';
+    }
+}
+
+function updateXpDisplay() {
+    const xpElement = document.getElementById('xp-display');
+    if (xpElement) {
+        xpElement.textContent = `XP: ${gameState.xp}`;
     }
 }
 
@@ -914,17 +946,21 @@ async function updateUserStreak() {
         }
 
         const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const updatedXp = (gameState.userProfile.xp || 0) + gameState.points;
+
         const { error } = await supabase
             .from('profiles')
-            .update({ streak: newStreak, last_played_date: today })
+            .update({ streak: newStreak, last_played_date: today, xp: updatedXp })
             .eq('id', currentUser.id);
 
         if (error) {
-            console.error('Error updating streak:', error);
+            console.error('Error updating streak and xp:', error);
         } else {
             gameState.userProfile.streak = newStreak;
             gameState.userProfile.last_played_date = today;
+            gameState.xp = updatedXp;
             updateStreakDisplay();
+            updateXpDisplay();
         }
     }
 }
@@ -937,29 +973,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Auth UI Listeners ---
     document.getElementById('login-button').addEventListener('click', handleLogin);
     document.getElementById('signup-button').addEventListener('click', handleSignup);
-    document.getElementById('logout-button').addEventListener('click', handleLogout);
+    // The logout button is inside the game container, so we'll add its listener when the user logs in
 
     // Listen for auth state changes
     supabase.auth.onAuthStateChange((event, session) => {
         const loginContainer = document.getElementById('login-container');
         const gameContainer = document.getElementById('game-container');
-        const userEmailElement = document.getElementById('user-email');
+        const userProfileDisplay = document.getElementById('user-profile-display');
+        const authContainer = document.getElementById('auth-container');
 
         if (session && session.user) {
             // User is logged in
             loginContainer.style.display = 'none';
             gameContainer.style.display = 'block';
-            userEmailElement.textContent = `Welcome, ${session.user.email}`;
-            fetchUserProfile(); // Fetch profile on login
+            userProfileDisplay.style.display = 'block';
+            
+            // Clear any previous auth form and add logout button
+            authContainer.innerHTML = ''; 
+            const logoutButton = document.createElement('button');
+            logoutButton.id = 'logout-button';
+            logoutButton.className = 'button';
+            logoutButton.textContent = 'Logout';
+            logoutButton.addEventListener('click', handleLogout);
+            authContainer.appendChild(logoutButton);
+
+            fetchUserProfile();
         } else {
             // User is logged out
             loginContainer.style.display = 'block';
             gameContainer.style.display = 'none';
-            userEmailElement.textContent = '';
-            gameState.userProfile = null;
-            updateStreakDisplay();
+            userProfileDisplay.style.display = 'none';
+            authContainer.innerHTML = ''; // Clear logout button
         }
     });
+
+    // Initial check
+    const { data: { session } } = await supabase.auth.getSession();
+    const loginContainer = document.getElementById('login-container');
+    const gameContainer = document.getElementById('game-container');
+    const userProfileDisplay = document.getElementById('user-profile-display');
+    const authContainer = document.getElementById('auth-container');
+
+    if (session && session.user) {
+        loginContainer.style.display = 'none';
+        gameContainer.style.display = 'block';
+        userProfileDisplay.style.display = 'block';
+        
+        authContainer.innerHTML = '';
+        const logoutButton = document.createElement('button');
+        logoutButton.id = 'logout-button';
+        logoutButton.className = 'button';
+        logoutButton.textContent = 'Logout';
+        logoutButton.addEventListener('click', handleLogout);
+        authContainer.appendChild(logoutButton);
+
+        fetchUserProfile();
+    } else {
+        loginContainer.style.display = 'block';
+        gameContainer.style.display = 'none';
+        userProfileDisplay.style.display = 'none';
+        authContainer.innerHTML = '';
+    }
     
     // Set initial timer display
     gameState.timeLeft = 120; // 2 minutes in seconds
@@ -1101,6 +1175,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             endGame();
         });
     }
+
+    // Add event listener for the new high scores button
+    const viewHighScoresButton = document.getElementById('view-high-scores');
+    if (viewHighScoresButton) {
+        viewHighScoresButton.addEventListener('click', () => {
+            showHighScores();
+        });
+    }
 });
 
 function startNewGame() {
@@ -1112,6 +1194,7 @@ function startNewGame() {
     // Reset game state
     gameState.sentenceCount = 0;
     gameState.story = '';
+    gameState.storyLines = [];
     gameState.completedChallenges = [];
     gameState.points = 0;
     gameState.words = 0;
