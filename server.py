@@ -1,10 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from N2G.crew import build_prompt_only_crew, build_continue_only_crew
 import os
 import traceback
 import logging
 from dotenv import load_dotenv
+import openai
+import base64
+import uuid
+import json
 
 # Load environment variables
 load_dotenv()
@@ -20,7 +24,15 @@ if not os.getenv("OPENAI_API_KEY"):
 
 app = Flask(__name__)
 # Configure CORS to allow all origins in development
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+# Configure OpenAI
+openai.api_key = os.getenv('OPENAI_API_KEY')
+
+# Create images directory if it doesn't exist
+IMAGES_DIR = 'generated_images'
+if not os.path.exists(IMAGES_DIR):
+    os.makedirs(IMAGES_DIR)
 
 @app.route('/api/start-story', methods=['POST'])
 def start_story():
@@ -130,6 +142,66 @@ def continue_story():
         logger.error(f"Error in continue_story: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/generate-image', methods=['POST'])
+def generate_image():
+    try:
+        data = request.get_json()
+        story = data.get('story', '')
+        
+        if not story:
+            return jsonify({'error': 'Story text is required'}), 400
+        
+        # Create a prompt for image generation based on the story
+        prompt = (
+            f"Create a beautiful, child-friendly illustration for this story: {story[:1000]}. "
+            "Do not include any text, words, or letters in the image. Only show the scene visually."
+        )
+        
+        # Generate image using OpenAI's DALL-E 3 (GPT-4o doesn't generate images, DALL-E 3 is the current image generation model)
+        response = openai.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        
+        # Get the image URL
+        image_url = response.data[0].url
+        
+        # Generate a unique filename
+        filename = f"story_image_{uuid.uuid4().hex[:8]}.png"
+        
+        # Save the image URL to a JSON file for reference
+        image_data = {
+            'filename': filename,
+            'url': image_url,
+            'story': story[:200] + "..." if len(story) > 200 else story,
+            'timestamp': str(uuid.uuid4())
+        }
+        
+        with open(os.path.join(IMAGES_DIR, f"{filename}.json"), 'w') as f:
+            json.dump(image_data, f)
+        
+        return jsonify({
+            'success': True,
+            'image_url': image_url,
+            'filename': filename
+        })
+        
+    except Exception as e:
+        print(f"Error generating image: {str(e)}")
+        return jsonify({'error': f'Failed to generate image: {str(e)}'}), 500
+
+@app.route('/api/images/<filename>')
+def get_image(filename):
+    """Serve generated images"""
+    return send_from_directory(IMAGES_DIR, filename)
+
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5002))

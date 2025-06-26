@@ -372,6 +372,11 @@ async function endGame() {
                         ? `<ul>${gameState.completedChallenges.map(challenge => `<li>${challenge}</li>`).join('')}</ul>`
                         : '<p>No challenges completed</p>'}
                 </div>
+                <div id="generated-image-container" style="display: none; margin: 20px 0;">
+                    <h3>🎨 Your Story as an Image</h3>
+                    <img id="generated-image" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
+                    <button id="download-image" class="button" style="margin-top: 10px;">📥 Download Image</button>
+                </div>
                 ${supabase ? `
                     <div class="email-input">
                         <label for="player-email">Enter your email to save your score:</label>
@@ -390,6 +395,7 @@ async function endGame() {
             </div>
             <div class="score-actions">
                 ${supabase ? '<button id="save-score">Save Score</button>' : ''}
+                <button id="generate-image">🎨 Generate Story Image</button>
                 <button id="download-story">Download Story</button>
                 <button id="new-game">New Game</button>
                 <button id="view-scores">View High Scores</button>
@@ -398,6 +404,69 @@ async function endGame() {
         </div>
     `;
     document.body.appendChild(scoreModal);
+
+    // Generate image button logic
+    document.getElementById('generate-image').addEventListener('click', async () => {
+        const generateButton = document.getElementById('generate-image');
+        const imageContainer = document.getElementById('generated-image-container');
+        const generatedImage = document.getElementById('generated-image');
+        
+        generateButton.disabled = true;
+        generateButton.textContent = '🎨 Generating Image...';
+        
+        try {
+            // Prepare the story text for image generation
+            const storyText = gameState.story;
+            
+            // Call the Flask backend to generate image
+            const response = await fetch('http://localhost:5002/api/generate-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    story: storyText
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.image_url) {
+                // Display the generated image
+                generatedImage.src = data.image_url;
+                imageContainer.style.display = 'block';
+                
+                generateButton.textContent = '🎨 Image Generated!';
+                generateButton.style.backgroundColor = '#45a049';
+                
+                // Add download functionality for the image
+                document.getElementById('download-image').addEventListener('click', () => {
+                    const link = document.createElement('a');
+                    link.href = data.image_url;
+                    link.download = `story_image_${Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                });
+                
+            } else {
+                throw new Error(data.error || 'Failed to generate image');
+            }
+            
+        } catch (error) {
+            console.error('Error generating image:', error);
+            generateButton.textContent = '🎨 Generate Story Image';
+            generateButton.style.backgroundColor = '#f44336';
+            alert('Failed to generate image. Please try again later.');
+            
+            // Reset button after a delay
+            setTimeout(() => {
+                generateButton.disabled = false;
+                generateButton.textContent = '🎨 Generate Story Image';
+                generateButton.style.backgroundColor = '#4CAF50';
+            }, 3000);
+        }
+    });
 
     // Download story button logic
     document.getElementById('download-story').addEventListener('click', () => {
@@ -592,8 +661,8 @@ async function getAIResponse() {
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
-                grade_level: gameState.gradeLevel,
-                story: gameState.story,
+                gradeLevel: gameState.gradeLevel,
+                storySoFar: gameState.story,
                 challenge: gameState.currentChallenge
             })
         });
@@ -1267,7 +1336,7 @@ function startNewGame() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            grade_level: gradeLevel,
+            gradeLevel: gradeLevel,
             challenge: gameState.currentChallenge
         })
     })
