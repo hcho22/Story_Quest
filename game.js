@@ -866,6 +866,11 @@ function updateVoiceButton() {
 
 // --- Authentication Functions ---
 async function handleLogin() {
+    if (!supabase) {
+        alert('Authentication system is still loading. Please wait a moment and try again.');
+        return;
+    }
+    
     const email = document.getElementById('email-input').value;
     const password = document.getElementById('password-input').value;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -875,6 +880,11 @@ async function handleLogin() {
 }
 
 async function handleSignup() {
+    if (!supabase) {
+        alert('Authentication system is still loading. Please wait a moment and try again.');
+        return;
+    }
+    
     const email = document.getElementById('email-input').value;
     const password = document.getElementById('password-input').value;
     const { error } = await supabase.auth.signUp({ email, password });
@@ -886,6 +896,11 @@ async function handleSignup() {
 }
 
 async function handleLogout() {
+    if (!supabase) {
+        alert('Authentication system is still loading. Please wait a moment and try again.');
+        return;
+    }
+    
     const { error } = await supabase.auth.signOut();
     if (error) {
         alert('Error logging out: ' + error.message);
@@ -973,66 +988,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Auth UI Listeners ---
     document.getElementById('login-button').addEventListener('click', handleLogin);
     document.getElementById('signup-button').addEventListener('click', handleSignup);
-    // The logout button is inside the game container, so we'll add its listener when the user logs in
+    
+    // Add logout button listener (it already exists in HTML)
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', handleLogout);
+    }
 
-    // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    // Only set up auth listeners if Supabase is properly initialized
+    if (supabase) {
+        // Listen for auth state changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            const loginContainer = document.getElementById('login-container');
+            const gameContainer = document.getElementById('game-container');
+            const userInfo = document.getElementById('user-info');
+            const logoutButton = document.getElementById('logout-button');
+
+            if (session && session.user) {
+                // User is logged in
+                loginContainer.style.display = 'none';
+                gameContainer.style.display = 'block';
+                
+                // Show user info and logout button
+                if (userInfo) userInfo.style.display = 'block';
+                if (logoutButton) logoutButton.style.display = 'inline-block';
+
+                fetchUserProfile();
+            } else {
+                // User is logged out
+                loginContainer.style.display = 'block';
+                gameContainer.style.display = 'none';
+                
+                // Hide user info and logout button
+                if (userInfo) userInfo.style.display = 'none';
+                if (logoutButton) logoutButton.style.display = 'none';
+            }
+        });
+
+        // Initial check
+        const { data: { session } } = await supabase.auth.getSession();
         const loginContainer = document.getElementById('login-container');
         const gameContainer = document.getElementById('game-container');
-        const userProfileDisplay = document.getElementById('user-profile-display');
-        const authContainer = document.getElementById('auth-container');
+        const userInfo = document.getElementById('user-info');
+        const logoutButton = document.getElementById('logout-button');
 
         if (session && session.user) {
-            // User is logged in
             loginContainer.style.display = 'none';
             gameContainer.style.display = 'block';
-            userProfileDisplay.style.display = 'block';
             
-            // Clear any previous auth form and add logout button
-            authContainer.innerHTML = ''; 
-            const logoutButton = document.createElement('button');
-            logoutButton.id = 'logout-button';
-            logoutButton.className = 'button';
-            logoutButton.textContent = 'Logout';
-            logoutButton.addEventListener('click', handleLogout);
-            authContainer.appendChild(logoutButton);
+            // Show user info and logout button
+            if (userInfo) userInfo.style.display = 'block';
+            if (logoutButton) logoutButton.style.display = 'inline-block';
 
             fetchUserProfile();
         } else {
-            // User is logged out
             loginContainer.style.display = 'block';
             gameContainer.style.display = 'none';
-            userProfileDisplay.style.display = 'none';
-            authContainer.innerHTML = ''; // Clear logout button
+            
+            // Hide user info and logout button
+            if (userInfo) userInfo.style.display = 'none';
+            if (logoutButton) logoutButton.style.display = 'none';
         }
-    });
-
-    // Initial check
-    const { data: { session } } = await supabase.auth.getSession();
-    const loginContainer = document.getElementById('login-container');
-    const gameContainer = document.getElementById('game-container');
-    const userProfileDisplay = document.getElementById('user-profile-display');
-    const authContainer = document.getElementById('auth-container');
-
-    if (session && session.user) {
-        loginContainer.style.display = 'none';
-        gameContainer.style.display = 'block';
-        userProfileDisplay.style.display = 'block';
-        
-        authContainer.innerHTML = '';
-        const logoutButton = document.createElement('button');
-        logoutButton.id = 'logout-button';
-        logoutButton.className = 'button';
-        logoutButton.textContent = 'Logout';
-        logoutButton.addEventListener('click', handleLogout);
-        authContainer.appendChild(logoutButton);
-
-        fetchUserProfile();
     } else {
-        loginContainer.style.display = 'block';
-        gameContainer.style.display = 'none';
-        userProfileDisplay.style.display = 'none';
-        authContainer.innerHTML = '';
+        console.warn('Supabase not initialized. Authentication features will be disabled.');
+        // Show a message to the user that auth is not available
+        const loginContainer = document.getElementById('login-container');
+        if (loginContainer) {
+            loginContainer.innerHTML = `
+                <div class="header">
+                    <h1>🎮 StoryQuest</h1>
+                    <p>Authentication is not configured. You can still play the game, but scores won't be saved.</p>
+                    <button class="button" onclick="window.location.reload()">Continue to Game</button>
+                </div>
+            `;
+        }
     }
     
     // Set initial timer display
@@ -1054,9 +1083,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // Grade level change
-    document.getElementById('grade-level').addEventListener('change', (e) => {
-        gameState.gradeLevel = e.target.value;
-    });
+    const gradeLevelSelect = document.getElementById('grade-level');
+    if (gradeLevelSelect) {
+        gradeLevelSelect.addEventListener('change', (e) => {
+            gameState.gradeLevel = e.target.value;
+        });
+    }
     
     // Start game button
     const startGameButton = document.getElementById('start-game');
@@ -1080,13 +1112,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupVoiceRecognition();
     
     // Add voice input button event listener
-    document.getElementById('voice-input').addEventListener('click', () => {
-        if (isListening) {
-            stopListening();
-        } else {
-            startListening();
-        }
-    });
+    const voiceInputButton = document.getElementById('voice-input');
+    if (voiceInputButton) {
+        voiceInputButton.addEventListener('click', () => {
+            if (isListening) {
+                stopListening();
+            } else {
+                startListening();
+            }
+        });
+    }
     
     // Add keyboard shortcut for voice input (Alt+V)
     document.addEventListener('keydown', (e) => {
@@ -1101,72 +1136,77 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     // Submit story button
-    document.getElementById('submit-story').addEventListener('click', async () => {
-        const input = document.getElementById('story-input');
-        const submitButton = document.getElementById('submit-story');
-        const text = input.value.trim();
-        
-        if (!text) {
-            alert('Please enter your sentence to continue the story.');
-            return;
-        }
-        
-        if (!gameState.isUserTurn) {
-            alert('Please wait for your turn!');
-            return;
-        }
-        
-        // Prevent double submission
-        if (submitButton.disabled) {
-            return;
-        }
-        
-        try {
-            // Disable input while processing
-            input.disabled = true;
-            submitButton.disabled = true;
-            document.getElementById('voice-input').disabled = true;
+    const submitStoryButton = document.getElementById('submit-story');
+    if (submitStoryButton) {
+        submitStoryButton.addEventListener('click', async () => {
+            const input = document.getElementById('story-input');
+            const submitButton = document.getElementById('submit-story');
+            const text = input.value.trim();
             
-            // Clear the timer when submitting
-            if (gameState.timer) {
-                clearInterval(gameState.timer);
-            }
-            
-            // Add user's story and award points
-            addToStory(text);
-            updateStats();
-            awardPoints(text);
-            input.value = '';
-            
-            // Update game state
-            gameState.sentenceCount++;
-            updateSentenceCount();
-            
-            // Check if we've reached the maximum sentences
-            if (gameState.sentenceCount >= gameState.maxSentences * 2) {
-                endGame();
+            if (!text) {
+                alert('Please enter your sentence to continue the story.');
                 return;
             }
             
-            // Switch turns
-            gameState.isUserTurn = false;
-            updateTurnIndicator();
+            if (!gameState.isUserTurn) {
+                alert('Please wait for your turn!');
+                return;
+            }
             
-            // Wait for AI response
-            await getAIResponse();
-        } catch (error) {
-            console.error('Error in submit handler:', error);
-            // Re-enable input if there's an error
-            input.disabled = false;
-            submitButton.disabled = false;
-            document.getElementById('voice-input').disabled = false;
-            gameState.isUserTurn = true;
-            updateTurnIndicator();
+            // Prevent double submission
+            if (submitButton.disabled) {
+                return;
+            }
             
-            // Restart the timer if there's an error
-            startTimer();
-        }
-    });
+            try {
+                // Disable input while processing
+                input.disabled = true;
+                submitButton.disabled = true;
+                const voiceInput = document.getElementById('voice-input');
+                if (voiceInput) voiceInput.disabled = true;
+                
+                // Clear the timer when submitting
+                if (gameState.timer) {
+                    clearInterval(gameState.timer);
+                }
+                
+                // Add user's story and award points
+                addToStory(text);
+                updateStats();
+                awardPoints(text);
+                input.value = '';
+                
+                // Update game state
+                gameState.sentenceCount++;
+                updateSentenceCount();
+                
+                // Check if we've reached the maximum sentences
+                if (gameState.sentenceCount >= gameState.maxSentences * 2) {
+                    endGame();
+                    return;
+                }
+                
+                // Switch turns
+                gameState.isUserTurn = false;
+                updateTurnIndicator();
+                
+                // Wait for AI response
+                await getAIResponse();
+            } catch (error) {
+                console.error('Error in submit handler:', error);
+                // Re-enable input if there's an error
+                input.disabled = false;
+                submitButton.disabled = false;
+                const voiceInput = document.getElementById('voice-input');
+                if (voiceInput) voiceInput.disabled = false;
+                gameState.isUserTurn = true;
+                updateTurnIndicator();
+                
+                // Restart the timer if there's an error
+                startTimer();
+            }
+        });
+    }
 
     // Add stop game button event listener (always allow stop)
     const stopGameButton = document.getElementById('stop-game');
@@ -1182,6 +1222,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         viewHighScoresButton.addEventListener('click', () => {
             showHighScores();
         });
+    }
+
+    // Add event listener for the new high scores button
+    const highScoresBtn = document.getElementById('high-scores-btn');
+    if (highScoresBtn) {
+        highScoresBtn.addEventListener('click', showHighScores);
     }
 });
 
