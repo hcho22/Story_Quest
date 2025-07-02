@@ -395,9 +395,9 @@ async function endGame() {
             </div>
             <div class="score-actions">
                 ${supabase ? '<button id="save-score">Save Score</button>' : ''}
+                <button id="new-game">New Game</button>
                 <button id="generate-image">🎨 Generate Story Image</button>
                 <button id="download-story">Download Story</button>
-                <button id="new-game">New Game</button>
                 <button id="view-scores">View High Scores</button>
                 <button id="close-score-modal">Close</button>
             </div>
@@ -651,7 +651,7 @@ async function getAIResponse() {
         });
         
         // Determine if this is the start of the story or a continuation
-        const isStart = gameState.sentenceCount === 0;
+        const isStart = !gameState.story || gameState.story.trim() === '';
         const endpoint = isStart ? '/api/start-story' : '/api/continue-story';
         
         const response = await fetch(`http://localhost:5002${endpoint}`, {
@@ -681,8 +681,8 @@ async function getAIResponse() {
         }
         
         addToStory(data.story, true);
-        gameState.sentenceCount++;
-        updateSentenceCount();
+        // Do NOT increment gameState.sentenceCount here
+        // updateSentenceCount();
         
         // Check if we've reached the maximum sentences
         if (gameState.sentenceCount >= gameState.maxSentences * 2) {
@@ -1298,6 +1298,92 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (highScoresBtn) {
         highScoresBtn.addEventListener('click', showHighScores);
     }
+
+    // Continue Story UI elements
+    const importDbBtn = document.getElementById('import-db-btn');
+    const uploadFileBtn = document.getElementById('upload-file-btn');
+    const uploadFileInput = document.getElementById('upload-file-input');
+    const userStoriesList = document.getElementById('user-stories-list');
+
+    // File upload logic
+    uploadFileBtn.addEventListener('click', () => {
+        uploadFileInput.value = '';
+        uploadFileInput.click();
+    });
+
+    uploadFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const storyText = evt.target.result;
+                loadStoryFromText(storyText);
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // Import from DB logic
+    importDbBtn.addEventListener('click', async () => {
+        if (!supabase) {
+            alert('Supabase is not initialized. Please log in.');
+            return;
+        }
+        userStoriesList.innerHTML = '<p>Loading your stories...</p>';
+        userStoriesList.style.display = 'block';
+        try {
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                userStoriesList.innerHTML = '<p>Please log in to view your stories.</p>';
+                return;
+            }
+            // Fetch stories for this user
+            const { data: stories, error } = await supabase
+                .from('scores')
+                .select('id, story, created_at, grade_level, points')
+                .eq('player_email', user.email)
+                .order('created_at', { ascending: false })
+                .limit(10);
+            if (error) throw error;
+            if (!stories || stories.length === 0) {
+                userStoriesList.innerHTML = '<p>No saved stories found.</p>';
+                return;
+            }
+            // Show stories as a list
+            userStoriesList.innerHTML = '<h4>Your Stories</h4>' +
+                '<ul style="list-style:none; padding:0;">' +
+                stories.map(story =>
+                    `<li style="margin-bottom:10px;">
+                        <button class="button" style="width:100%;text-align:left;" data-story-id="${story.id}">
+                            <b>${story.grade_level}</b> | ${story.created_at ? new Date(story.created_at).toLocaleString() : ''} | <span style="color:#888">${story.points} pts</span><br>
+                            <span style="font-size:0.95em; color:#555;">${story.story.slice(0, 60)}${story.story.length > 60 ? '...' : ''}</span>
+                        </button>
+                    </li>`
+                ).join('') + '</ul>';
+            // Add click listeners
+            userStoriesList.querySelectorAll('button[data-story-id]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const storyId = btn.getAttribute('data-story-id');
+                    const storyObj = stories.find(s => s.id == storyId);
+                    if (storyObj) {
+                        loadStoryFromText(storyObj.story);
+                        userStoriesList.style.display = 'none';
+                    }
+                });
+            });
+        } catch (err) {
+            userStoriesList.innerHTML = '<p>Error loading stories. Please try again later.</p>';
+            console.error('Error fetching user stories:', err);
+        }
+    });
+
+    // Hide story list when clicking outside
+    document.addEventListener('click', (e) => {
+        if (userStoriesList.style.display === 'block' && !userStoriesList.contains(e.target) && e.target !== importDbBtn) {
+            userStoriesList.style.display = 'none';
+        }
+    });
 });
 
 function startNewGame() {
@@ -1778,4 +1864,64 @@ function awardPoints(text) {
     }
 
     updateStats();
+}
+
+// Helper: Load story text into game state and update UI
+function loadStoryFromText(storyText) {
+    // Reset game state as for a new game
+    gameState.story = storyText;
+    gameState.storyLines = [];
+    gameState.points = 0;
+    gameState.words = 0;
+    gameState.userWords = 0;
+    gameState.sentenceCount = 0;
+    gameState.completedChallenges = [];
+    gameState.currentChallenge = null;
+    gameState.gameStarted = true;
+
+    // Try to parse lines with author if possible
+    const lines = storyText.split('\n');
+    for (const line of lines) {
+        if (line.startsWith('AI:') || line.startsWith('🤖 AI:')) {
+            gameState.storyLines.push({ text: line.replace(/^((🤖 )?AI:)/, '').trim(), author: 'AI' });
+        } else if (line.startsWith('You:') || line.startsWith('✍️ You:')) {
+            gameState.storyLines.push({ text: line.replace(/^((✍️ )?You:)/, '').trim(), author: 'User' });
+        } else if (line.trim()) {
+            // Fallback: treat as user
+            gameState.storyLines.push({ text: line.trim(), author: 'User' });
+        }
+    }
+    // Update UI and stats
+    updateStoryDisplay();
+    updateStats();
+    updateSentenceCount();
+    updateTurnIndicator();
+    alert('Story loaded! You can now continue your story.');
+
+    // Decide whose turn it is: user always goes after AI
+    if (gameState.storyLines.length === 0 || gameState.storyLines[gameState.storyLines.length - 1].author === 'AI') {
+        gameState.isUserTurn = true;
+    } else {
+        gameState.isUserTurn = false;
+    }
+
+    // Set or pick a challenge
+    getNewChallenge();
+
+    // Enable input if it's user's turn
+    const input = document.getElementById('story-input');
+    const submitButton = document.getElementById('submit-story');
+    const voiceButton = document.getElementById('voice-input');
+    if (gameState.isUserTurn) {
+        input.disabled = false;
+        submitButton.disabled = false;
+        voiceButton.disabled = false;
+        startTimer();
+    } else {
+        input.disabled = true;
+        submitButton.disabled = true;
+        voiceButton.disabled = true;
+        getAIResponse();
+    }
+    updateTurnIndicator();
 } 
