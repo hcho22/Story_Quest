@@ -16,7 +16,8 @@ let gameState = {
     gameStarted: false,
     userWords: 0,
     userProfile: null,
-    xp: 0
+    xp: 0,
+    userSentenceCount: 0 // NEW: track only user turns
 };
 
 // Story challenges by grade level
@@ -223,13 +224,16 @@ function startTimer() {
 
 function updateTimerDisplay() {
     const timerElement = document.getElementById('timer');
-    if (!timerElement) {
+    const timerInline = document.getElementById('timer-inline');
+    if (!timerElement && !timerInline) {
         console.error('Timer element not found');
         return;
     }
     const minutes = Math.floor(gameState.timeLeft / 60);
     const seconds = gameState.timeLeft % 60;
-    timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    if (timerElement) timerElement.textContent = timerText;
+    if (timerInline) timerInline.textContent = timerText;
 }
 
 function updateTurnIndicator() {
@@ -256,8 +260,8 @@ function updateSentenceCount() {
         console.error('Sentences element not found');
         return;
     }
-    // Divide by 2 since we count both user and AI turns
-    const userSentences = Math.ceil(gameState.sentenceCount / 2);
+    // Use only userSentenceCount
+    const userSentences = gameState.userSentenceCount;
     sentencesElement.textContent = `${userSentences}/${gameState.maxSentences}`;
 }
 
@@ -407,6 +411,11 @@ async function endGame() {
 
     // Generate image button logic
     document.getElementById('generate-image').addEventListener('click', async () => {
+        // Prevent image generation if story is empty
+        if (!gameState.story || gameState.story.trim() === '') {
+            alert('No story available to generate an image. Please finish the game first!');
+            return;
+        }
         const generateButton = document.getElementById('generate-image');
         const imageContainer = document.getElementById('generated-image-container');
         const generatedImage = document.getElementById('generated-image');
@@ -441,12 +450,7 @@ async function endGame() {
                 
                 // Add download functionality for the image
                 document.getElementById('download-image').addEventListener('click', () => {
-                    const link = document.createElement('a');
-                    link.href = data.image_url;
-                    link.download = `story_image_${Date.now()}.png`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+                    window.open(data.image_url, '_blank');
                 });
                 
             } else {
@@ -751,6 +755,7 @@ function getNewChallenge() {
 
 function updateChallengeDisplay() {
     const challengeDisplay = document.getElementById('currentChallenge');
+    const challengeInline = document.getElementById('currentChallenge-inline');
     if (challengeDisplay) {
         if (!gameState.currentChallenge) {
             challengeDisplay.textContent = 'Click "Start New Game" to begin!';
@@ -760,6 +765,13 @@ function updateChallengeDisplay() {
         }
     } else {
         console.error('Challenge display element not found'); // Debug log
+    }
+    if (challengeInline) {
+        if (!gameState.currentChallenge) {
+            challengeInline.textContent = '';
+        } else {
+            challengeInline.textContent = `Current Challenge: ${gameState.currentChallenge}`;
+        }
     }
 }
 
@@ -1246,11 +1258,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 input.value = '';
                 
                 // Update game state
-                gameState.sentenceCount++;
+                gameState.userSentenceCount++;
                 updateSentenceCount();
                 
                 // Check if we've reached the maximum sentences
-                if (gameState.sentenceCount >= gameState.maxSentences * 2) {
+                if (gameState.userSentenceCount >= gameState.maxSentences) {
                     endGame();
                     return;
                 }
@@ -1394,6 +1406,7 @@ function startNewGame() {
     }
     // Reset game state
     gameState.sentenceCount = 0;
+    gameState.userSentenceCount = 0;
     gameState.story = '';
     gameState.storyLines = [];
     gameState.completedChallenges = [];
@@ -1875,6 +1888,7 @@ function loadStoryFromText(storyText) {
     gameState.words = 0;
     gameState.userWords = 0;
     gameState.sentenceCount = 0;
+    gameState.userSentenceCount = 0;
     gameState.completedChallenges = [];
     gameState.currentChallenge = null;
     gameState.gameStarted = true;
