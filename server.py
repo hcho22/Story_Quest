@@ -9,6 +9,8 @@ import openai
 import base64
 import uuid
 import json
+from openai import OpenAI
+import re
 
 # Load environment variables
 load_dotenv()
@@ -28,11 +30,49 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Configure OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Create images directory if it doesn't exist
 IMAGES_DIR = 'generated_images'
 if not os.path.exists(IMAGES_DIR):
     os.makedirs(IMAGES_DIR)
+
+def contains_prohibited_content(text):
+    # Basic keyword-based filter for profanity, hate speech, sexual content, violence, and dangerous acts
+    # This is not exhaustive, but covers common cases
+    prohibited_keywords = [
+        # Profanity (sample, not exhaustive)
+        'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'dick', 'pussy', 'cunt', 'fag', 'slut', 'whore',
+        # Hate speech
+        'nigger', 'nigga', 'chink', 'spic', 'kike', 'faggot', 'tranny', 'retard', 'gook', 'wetback',
+        # Sexual content
+        'sex', 'sexual', 'nude', 'naked', 'porn', 'penis', 'vagina', 'boobs', 'breasts', 'cum', 'ejaculate', 'masturbate', 'orgasm',
+        # Violence
+        'kill', 'murder', 'rape', 'stab', 'shoot', 'gun', 'bomb', 'terrorist', 'terrorism', 'suicide', 'hang', 'lynch', 'molest',
+        # Dangerous acts
+        'overdose', 'self-harm', 'cutting', 'bleed', 'poison', 'chloroform', 'strangle', 'asphyxiate', 'arson', 'explosive', 'explosion'
+    ]
+    text_lower = text.lower()
+    for word in prohibited_keywords:
+        if word in text_lower:
+            return True, word
+    return False, None
+
+def moderate_content(text):
+    # First, check with built-in filter
+    is_blocked, keyword = contains_prohibited_content(text)
+    if is_blocked:
+        print(f"Built-in filter blocked content for keyword: {keyword}")
+        return False, {"error": f"Content blocked for safety reasons: contains prohibited word '{keyword}'"}
+    try:
+        response = client.moderations.create(input=text)
+        results = response.results[0]
+        if results.flagged:
+            return False, results.categories
+        return True, None
+    except Exception as e:
+        print(f"Moderation API error: {e}")
+        return False, {"error": "Moderation API error"}
 
 @app.route('/api/start-story', methods=['POST'])
 def start_story():
@@ -69,7 +109,12 @@ def start_story():
             
             if not result:
                 raise ValueError("No story was generated")
-                
+            
+            # Moderation check
+            is_safe, categories = moderate_content(result)
+            if not is_safe:
+                return jsonify({"error": f"Content blocked for safety reasons: {categories}"}), 400
+            
             logger.debug(f"Generated story: {result}")
             return jsonify({"story": result})
         except Exception as e:
@@ -127,7 +172,12 @@ def continue_story():
             
             if not result:
                 raise ValueError("No story continuation was generated")
-                
+            
+            # Moderation check
+            is_safe, categories = moderate_content(result)
+            if not is_safe:
+                return jsonify({"error": f"Content blocked for safety reasons: {categories}"}), 400
+            
             logger.debug(f"Generated continuation: {result}")
             return jsonify({"story": result})
         except Exception as e:
@@ -152,10 +202,17 @@ def generate_image():
         if not story:
             return jsonify({'error': 'Story text is required'}), 400
         
+        # Preprocess the story: remove numbered lists and dialogue labels
+        story_for_image = re.sub(r'\d+\.\s.*', '', story)  # Remove numbered lists
+        story_for_image = re.sub(r'[A-Za-z]+:', '', story_for_image)  # Remove dialogue labels
+        story_for_image = story_for_image.strip()
+        
         # Create a prompt for image generation based on the story
         prompt = (
-            f"Create a beautiful, child-friendly illustration for this story: {story[:1000]}. "
-            "Do not include any text, words, or letters in the image. Only show the scene visually."
+            "Absolutely do not include any text, words, numbers, or writing of any kind in the image. "
+            "No signs, no books, no visible writing. "
+            "Create a beautiful, child-friendly illustration summarizing this story visually: "
+            f"{story_for_image[:1000]}"
         )
         
         # Generate image using OpenAI's DALL-E 3 (GPT-4o doesn't generate images, DALL-E 3 is the current image generation model)
